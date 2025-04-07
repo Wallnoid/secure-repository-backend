@@ -15,8 +15,12 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
+from aws_files_service.urls import urlpatterns as aws_urls
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('docs/', include(aws_urls))
 ]
+
+

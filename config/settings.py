@@ -11,9 +11,16 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
-
+from dotenv import load_dotenv, get_key
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / '.env')
+# GET ENV VARIABLES
+AWS_ACCESS_KEY_ID = get_key(BASE_DIR / '.env', 'AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = get_key(BASE_DIR / '.env', 'AWS_SECRET_ACCESS_KEY')
+AWS_S3_REGION_NAME = get_key(BASE_DIR / '.env', 'AWS_REGION')
+AWS_STORAGE_BUCKET_NAME = get_key(BASE_DIR / '.env', 'AWS_BUCKET_NAME')
+print(AWS_ACCESS_KEY_ID) 
 
 
 # Quick-start development settings - unsuitable for production
@@ -37,7 +44,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'rest_framework'
+    'rest_framework',
+    'aws_files_service'
 ]
 
 MIDDLEWARE = [
@@ -80,6 +88,14 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# REST_FRAMEWORK = {
+#     # Use Django's standard `django.contrib.auth` permissions,
+#     # or allow read-only access for unauthenticated users.
+#     'DEFAULT_PERMISSION_CLASSES': [
+#         'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
+#     ]
+# }
 
 
 # Password validation
