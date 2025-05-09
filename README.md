@@ -1,25 +1,61 @@
-crear un entorno: py -m venv venv
 
-activar entorno .\venv\Scripts\Activate
+# Secure Repository Backend
 
-configurar para que funcione en powershell:Set-ExecutionPolicy Unrestricted -Scope CurrentUser
+This is a mini-project for the topic of security in software development.
 
-desactivar entorno:deactivate
+**What is it about?**\
+The main objective is to encrypt documents with the encryption scheme AES without using any encryption-related libraries.
+## Tech Stack
 
-crear archivo de dependencias:  pip freeze > requirements.txt
+**Backend:** PYTHON 3, DJANGO\
+**Services:** AWS, S3, IAM, COGNITO 
 
-construir contenedor: docker build -t proyecto
 
-Ejecutar contenedor:  docker run -p 8000:8000 carpeta/proyecto
+## Installation
 
-url:http://127.0.0.1:8000/
+First we need to create the virtual environment:
 
-correr modo dev y segundo plano (el path dedbe estar en minusculas): docker run -v -d C:/users/asus/workspace/secure-repository-backend/:/app -p 8000:8000 WorkSpace/secure-repository-backend
+```bash
+py -m venv venv
+```
 
-ver logs: docker logs --follow [id]
+Activate the virtual environment:
 
-ver contenedores: docker ps
+```bash
+.\venv\Scripts\activate
+```
 
-ver imagenes: docker images
+Install dependencies:
 
-entrar a la consola de la imagen: docker exec -it {id} /bin/sh
+```bash
+pip install -r requirements.txt
+```
+
+Create .env file
+
+```bash
+AWS_ACCESS_KEY_ID=###
+AWS_SECRET_ACCESS_KEY=###
+AWS_REGION=###
+AWS_BUCKET_NAME=###
+
+
+```
+
+
+Run project
+
+```bash
+python manage.py sunserver
+```
+## Environment Variables
+
+To run this project, you will need to add the following environment variables to your .env file
+
+`AWS_ACCESS_KEY_ID`
+
+`AWS_SECRET_ACCESS_KEY`
+
+`AWS_REGION`
+
+`AWS_BUCKET_NAME`

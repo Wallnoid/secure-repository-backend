@@ -20,7 +20,7 @@ from aws_files_service.urls import urlpatterns as aws_urls
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('docs/', include(aws_urls))
+    path('api/docs/', include(aws_urls))
 ]
 
 
