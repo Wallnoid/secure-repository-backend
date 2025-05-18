@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
 
-class AwsFilesServiceConfig(AppConfig):
+class AwsFilesApiConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'aws_files_service'
+    name = 'aws_files_api'

@@ -3,17 +3,17 @@ from django.conf import settings
 
 
 
-class AWSFileService:
+class AWSCognitoService:
     def __init__(self):
-        self.s3_client = boto3.client(
-            's3',
+        self.cognito_client = boto3.client(
+            'cognito-idp',
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
             region_name=settings.AWS_S3_REGION_NAME,
             
         )
     
-    def get_file(self):
+    def get_user(self):
         try:
             
             print('descargando archivo')
@@ -50,16 +50,3 @@ class AWSFileService:
     #         self.s3_client.upload_fileobj(archivo_data, settings.AWS_STORAGE_BUCKET_NAME, archivo_key)
     #     except Exception as e:
     #         raise Exception(f"Error al subir el archivo: {str(e)}")
-
-    # def firmar_documento(self, archivo_key, usuario):
-    #     # Obtener el documento desde S3
-    #     archivo_data = self.obtener_documento(archivo_key)
-        
-    #     # Firmar el documento
-    #     documento_firmado = firmar_documento(archivo_data, usuario)
-        
-    #     # Subir documento firmado a S3 (o devolver el archivo firmado)
-    #     firma_key = archivo_key.replace("documentos/", "documentos_firmados/")
-    #     self.subir_documento(firma_key, documento_firmado)
-        
-    #     return firma_key
