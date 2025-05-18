@@ -48,6 +48,16 @@ Run project
 ```bash
 python manage.py sunserver
 ```
+
+## Appendix
+
+The API documentation is generated with Swagger.
+
+The endpoint to access it is:
+```http
+  /swagger
+```
+
 ## Environment Variables
 
 To run this project, you will need to add the following environment variables to your .env file
