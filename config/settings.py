@@ -20,7 +20,12 @@ AWS_ACCESS_KEY_ID = get_key(BASE_DIR / '.env', 'AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = get_key(BASE_DIR / '.env', 'AWS_SECRET_ACCESS_KEY')
 AWS_S3_REGION_NAME = get_key(BASE_DIR / '.env', 'AWS_REGION')
 AWS_STORAGE_BUCKET_NAME = get_key(BASE_DIR / '.env', 'AWS_BUCKET_NAME')
-print(AWS_ACCESS_KEY_ID) 
+
+# COGNITO
+COGNITO_AWS_REGION = get_key(BASE_DIR / '.env', 'COGNITO_AWS_REGION')
+COGNITO_USER_POOL = get_key(BASE_DIR / '.env', 'COGNITO_USER_POOL')
+COGNITO_AUDIENCE = get_key(BASE_DIR / '.env', 'COGNITO_AUDIENCE')
+
 
 
 # Quick-start development settings - unsuitable for production
@@ -44,8 +49,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_cognito_jwt',
     'rest_framework',
-    'aws_files_service'
+    'aws_files_api',
+    'aws_auth_service',
+    'drf_yasg',
 ]
 
 MIDDLEWARE = [
@@ -57,6 +65,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+
 
 ROOT_URLCONF = 'config.urls'
 
@@ -83,19 +93,35 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    
 }
 
-# REST_FRAMEWORK = {
-#     # Use Django's standard `django.contrib.auth` permissions,
-#     # or allow read-only access for unauthenticated users.
-#     'DEFAULT_PERMISSION_CLASSES': [
-#         'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
-#     ]
-# }
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {"class": "logging.StreamHandler"},
+    },
+    "loggers": {
+        "django_cognito_jwt": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+        },
+    },
+}
+
+COGNITO_USER_MODEL = 'aws_auth_service.CognitoUser'
+
+REST_FRAMEWORK = {
+    # Use Django's standard `django.contrib.auth` permissions,
+    # or allow read-only access for unauthenticated users.
+    # 'DEFAULT_PERMISSION_CLASSES': [
+    #     # 'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly',
+    # ]
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'django_cognito_jwt.JSONWebTokenAuthentication',
+    ]
+}
 
 
 # Password validation
@@ -115,6 +141,18 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+SWAGGER_SETTINGS = {
+    'SECURITY_DEFINITIONS': {
+        'Bearer': {
+            'type': 'apiKey',
+            'name': 'Authorization',
+            'in': 'header',
+            'description': 'Introduce tu token con el prefijo **Bearer**, por ejemplo: `Bearer tu_token_aqui`',
+        }
+    },
+}
+
 
 
 # Internationalization
