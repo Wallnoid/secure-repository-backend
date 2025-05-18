@@ -49,13 +49,13 @@ Run project
 python manage.py sunserver
 ```
 
-## Appendix
+## Documentation
 
 The API documentation is generated with Swagger.
 
 The endpoint to access it is:
 ```http
-  /swagger/
+/swagger/
 ```
 
 ## Environment Variables
