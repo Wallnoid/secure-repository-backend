@@ -55,7 +55,7 @@ The API documentation is generated with Swagger.
 
 The endpoint to access it is:
 ```http
-  /swagger
+  /swagger/
 ```
 
 ## Environment Variables
