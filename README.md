@@ -58,7 +58,7 @@ The API documentation is generated with Swagger.
 
 The endpoint to access it is:
 ```http
-GET /swagger/
+GET /api/docs/
 ```
 
 ## Environment Variables
