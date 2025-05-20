@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from aws_files_api.serializers import CreateFolderSerializer, UploadFileSerializer
+from aws_files_api.serializers import CreateFolderSerializer, FolderCrudSerializer, UploadFileSerializer
 from aws_files_api.services import AWSFileService
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -66,16 +66,35 @@ class UploadFile(APIView):
             
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+        
+
+class PrincipalFolder(APIView):
+    parser_classes = [ JSONParser]
+    
+    def get(self, request):
+        try:
+            response = file_service.get_principal_folders(f'{request.user.username}-security-project')
+            return Response(response, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
                
                 
 class FolderCrud(APIView):
     parser_classes = [ JSONParser]
     
+    @swagger_auto_schema(query_serializer=FolderCrudSerializer)
     def get(self, request):
         
         try:
-            print(request)
-            response = file_service.get_principal_folders(f'{request.user.username}-security-project')
+            print(request.query_params)
+            serializer = FolderCrudSerializer(data=request.query_params)
+            if serializer.is_valid():
+                folder_key = serializer.validated_data['folder_key']
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            response = file_service.get_files_by_folder_key(f'{request.user.username}-security-project',folder_key)
             return Response(response, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

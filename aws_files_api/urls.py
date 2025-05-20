@@ -1,7 +1,7 @@
 
 from django.urls import path
 
-from .views import CreateBucket, GetFilesView, UploadFile, DownloadFile, FolderCrud
+from .views import CreateBucket, GetFilesView, PrincipalFolder, UploadFile, DownloadFile, FolderCrud
 
 urlpatterns = [
     path('', GetFilesView.as_view(), name='get_docs'),
@@ -9,6 +9,7 @@ urlpatterns = [
     path('upload-file', UploadFile.as_view(), name='upload_file'),
     path('create-bucket', CreateBucket.as_view(), name='create_bucket'),
     path('folders', FolderCrud.as_view(), name='folder_crud'),
+    path('principal-folders', PrincipalFolder.as_view(), name='principal_folder'),
 ]
 
 
