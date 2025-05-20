@@ -38,6 +38,9 @@ AWS_ACCESS_KEY_ID=###
 AWS_SECRET_ACCESS_KEY=###
 AWS_REGION=###
 AWS_BUCKET_NAME=###
+COGNITO_AWS_REGION=###
+COGNITO_USER_POOL=###
+COGNITO_AUDIENCE=###
 
 
 ```
@@ -46,8 +49,18 @@ AWS_BUCKET_NAME=###
 Run project
 
 ```bash
-python manage.py sunserver
+python manage.py runserver
 ```
+
+## Documentation
+
+The API documentation is generated with Swagger.
+
+The endpoint to access it is:
+```http
+GET /swagger/
+```
+
 ## Environment Variables
 
 To run this project, you will need to add the following environment variables to your .env file
@@ -59,3 +72,9 @@ To run this project, you will need to add the following environment variables to
 `AWS_REGION`
 
 `AWS_BUCKET_NAME`
+
+`COGNITO_AWS_REGION`
+
+`COGNITO_USER_POOL`
+
+`COGNITO_AUDIENCE`
