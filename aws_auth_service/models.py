@@ -6,6 +6,7 @@ class CognitoUserManager(models.Manager):
         user = self.model()  
      
         user.username = payload.get('username', payload.get('cognito:username'))
+        user.email = payload.get('email', payload.get('cognito:email'))
         
         user.jwt_payload = payload
         return user

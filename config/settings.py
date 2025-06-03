@@ -26,6 +26,13 @@ COGNITO_AWS_REGION = get_key(BASE_DIR / '.env', 'COGNITO_AWS_REGION')
 COGNITO_USER_POOL = get_key(BASE_DIR / '.env', 'COGNITO_USER_POOL')
 COGNITO_AUDIENCE = get_key(BASE_DIR / '.env', 'COGNITO_AUDIENCE')
 
+# DATABASE
+DB_NAME = get_key(BASE_DIR / '.env', 'DB_NAME')
+DB_USER = get_key(BASE_DIR / '.env', 'DB_USER')
+DB_PASSWORD = get_key(BASE_DIR / '.env', 'DB_PASSWORD')
+DB_HOST = get_key(BASE_DIR / '.env', 'DB_HOST')
+DB_PORT = get_key(BASE_DIR / '.env', 'DB_PORT')
+
 
 
 # Quick-start development settings - unsuitable for production
@@ -54,12 +61,12 @@ INSTALLED_APPS = [
     'aws_files_api',
     'aws_auth_service',
     'drf_yasg',
+    'shared_files',
     'corsheaders',
 ]
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware', 
-    'django.middleware.common.CommonMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -120,7 +127,14 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 DATABASES = {
-    
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': DB_NAME,
+        'USER': DB_USER,
+        'PASSWORD': DB_PASSWORD,
+        'HOST': DB_HOST,
+        'PORT': DB_PORT,
+    }
 }
 
 LOGGING = {
