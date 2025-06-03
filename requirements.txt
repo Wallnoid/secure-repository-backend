@@ -22,6 +22,8 @@ Markdown==3.7
 MarkupSafe==3.0.2
 openapi-codec==1.3.2
 packaging==25.0
+psycopg==3.2.9
+psycopg-binary==3.2.9
 pycparser==2.22
 PyJWT==2.10.1
 python-dateutil==2.9.0.post0
