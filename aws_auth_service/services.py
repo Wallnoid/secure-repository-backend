@@ -19,10 +19,7 @@ class AWSCognitoService:
             print('descargando archivo')
             # Descargar archivo de S3
             self.s3_client.download_file(settings.AWS_STORAGE_BUCKET_NAME, 'william-perez-english.pdf', r'C:\Users\ASUS\Downloads\william-perez-english.pdf')
-            print('archivo descargado')
-            
-            
-            
+            print('archivo descargado')            
             return {"message": "Archivo descargado con éxito", "archivo": "william-perez-english.pdf"}
         except Exception as e:
             raise Exception(f"Error al obtener el documento: {str(e)}")
@@ -32,11 +29,8 @@ class AWSCognitoService:
         try:  
             response = self.s3_client.list_objects(
                 Bucket=settings.AWS_STORAGE_BUCKET_NAME
-                
-                
             )
             
-            print(response)
             return response['Contents']
         except Exception as e:
             print('Error',e)

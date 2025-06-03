@@ -41,10 +41,29 @@ AWS_BUCKET_NAME=###
 COGNITO_AWS_REGION=###
 COGNITO_USER_POOL=###
 COGNITO_AUDIENCE=###
+DB_PORT=###
+DB_USER=###
+DB_PASSWORD=###
+DB_NAME=###
+DB_HOST=###
 
 
 ```
 
+Start database with Docker:
+```bash
+docker compose up -d
+```
+
+Run makemigrations
+```bash
+python manage.py makemigrations
+```
+
+Run migrations
+```bash
+python manage.py migrate
+```
 
 Run project
 
@@ -58,23 +77,5 @@ The API documentation is generated with Swagger.
 
 The endpoint to access it is:
 ```http
-GET /swagger/
+GET /api/v1/docs/
 ```
-
-## Environment Variables
-
-To run this project, you will need to add the following environment variables to your .env file
-
-`AWS_ACCESS_KEY_ID`
-
-`AWS_SECRET_ACCESS_KEY`
-
-`AWS_REGION`
-
-`AWS_BUCKET_NAME`
-
-`COGNITO_AWS_REGION`
-
-`COGNITO_USER_POOL`
-
-`COGNITO_AUDIENCE`
