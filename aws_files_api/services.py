@@ -1,8 +1,12 @@
 import boto3
 from django.conf import settings
 import re
+import io
+from datetime import datetime
 
 from aws_files_api.serializers import ResponseFileSerializer
+from files_encryption.encryption_service import FileEncryptionService
+from files_decryption.decryption_service import FileDecryptionService
 
 
 class AWSFileService:
@@ -15,9 +19,12 @@ class AWSFileService:
             
         )
         
- 
- 
-# Bucket functions
+        # Inicializar servicios de cifrado/descifrado
+        self.encryption_service = FileEncryptionService()
+        self.decryption_service = FileDecryptionService()
+
+
+    # Bucket functions
     def create_bucket(self, bucket_name):
         """
         This function create a bucket in the s3
@@ -31,37 +38,138 @@ class AWSFileService:
             raise Exception(f"Error: {str(e)}")
         
  
-    # File functions
-    def upload_file(self,bucket_name,file_name,data):
+    def upload_file(self, bucket_name, file_name, data, metadata=None):
         """
-        This function upload a file to the bucket
+        This function upload a file to the bucket with automatic encryption
         @param bucket_name: str
         @param file_name: str
-        @param data: str
+        @param data: file object or str
+        @param metadata: dict - optional metadata
+        @return: dict with upload result
         """
         try:
+            # Obtener el nombre real del archivo desde el objeto data
+            actual_file_name = getattr(data, 'name', file_name) if hasattr(data, 'name') else file_name
             
-            return self.s3_client.upload_fileobj(data,bucket_name,file_name)
+            # Detectar si es archivo .bin para cifrado
+            if actual_file_name.lower().endswith('.bin'):
+
+                try:
+                    if hasattr(data, 'read'):
+                        binary_content = data.read()
+                        original_size = len(binary_content)
+                    else:
+                        binary_content = data
+                        original_size = len(binary_content)
+                    
+                    # Cifrar contenido
+                    encrypted_bytes = self.encryption_service.encrypt_binary_content(binary_content)
+                    encrypted_size = len(encrypted_bytes)
+                    
+                    encrypted_stream = io.BytesIO(encrypted_bytes)
+                    s3_response = self.s3_client.upload_fileobj(encrypted_stream, bucket_name, file_name+'.pdf')
+                    
+                    
+                    return {
+                        'status': 'success',
+                        'message': 'Archivo .bin cifrado y guardado como .pdf en S3 exitosamente',
+                        'file_type': 'binary_encrypted_as_pdf',
+                        'original_size': original_size,
+                        'encrypted_size': encrypted_size,
+                        'encryption_algorithm': 'AES-128-Binary-Custom',
+                        'storage_method': 'memory_only',
+                        'display_extension': '.pdf',
+                        'actual_type': '.bin',
+                        's3_response': s3_response
+                    }
+                    
+                except Exception as encrypt_error:
+                    return {
+                        'status': 'error',
+                        'message': f"Error al cifrar archivo .bin en memoria: {str(encrypt_error)}",
+                        'file_type': 'binary_encrypted'
+                    }
+            else:
+                # Solo se aceptan archivos .bin
+                return {
+                    'status': 'error',
+                    'message': 'Solo se aceptan archivos .bin para carga',
+                    'file_type': 'unsupported'
+                }
+                
         except Exception as e:
-            raise Exception(f"Error: {str(e)}")
+            return {
+                'status': 'error',
+                'message': f"Error: {str(e)}",
+                'file_type': 'unknown'
+            }
         
 
-    def get_file(self, bucket_name, file_name):
+    def get_file(self, bucket_name, file_name, decrypt_if_binary=True):
         """
-        This function get a file from the bucket
+        This function get a file from the bucket with automatic decryption for encrypted 
         @param bucket_name: str
         @param file_name: str
-        @return: bytes - contenido del archivo
+        @param decrypt_if_binary: bool - whether to decrypt files automatically
+        @return: dict with file data and metadata
         """
         try:
             response = self.s3_client.get_object(Bucket=bucket_name, Key=file_name)
-            return response['Body'].read()
+            file_content = response['Body'].read()
+            
+            if file_name.lower().endswith('.pdf') and decrypt_if_binary:
+                # Descifrar en memoria 
+                try:
+                    start_time = datetime.now()
+                    
+                    # Descifrar contenido directamente en memoria
+                    decrypted_content = self.decryption_service.decrypt_binary_content(file_content)
+                    
+                    end_time = datetime.now()
+                    decryption_time = (end_time - start_time).total_seconds()
+                    
+                    return {
+                        'status': 'success',
+                        'file_content': decrypted_content,
+                        'file_type': 'binary_decrypted_from_pdf',
+                        'original_size': len(decrypted_content),
+                        'encrypted_size': len(file_content),
+                        'decryption_algorithm': 'AES-128-Binary-Custom',
+                        'decryption_time': f"{decryption_time:.3f}s",
+                        'processing_method': 'memory_only',
+                        'display_extension': '.pdf',
+                        'actual_type': '.bin'
+                    }
+                    
+                except Exception as decrypt_error:
+                    # Si falla el descifrado, devolver archivo sin descifrar
+                    return {
+                        'status': 'warning',
+                        'file_content': file_content,
+                        'file_type': 'binary_encrypted_as_pdf',
+                        'message': f"No se pudo descifrar automáticamente: {str(decrypt_error)}",
+                        'display_extension': '.pdf',
+                        'actual_type': '.bin'
+                    }
+            else:
+                # Devolver archivo sin descifrar si se solicita
+                return {
+                    'status': 'success',
+                    'file_content': file_content,
+                    'file_type': 'encrypted_binary_as_pdf',
+                    'display_extension': '.pdf',
+                    'actual_type': '.bin'
+                }
    
         except Exception as e:
-            raise Exception(f"Error: {str(e)}")
+            return {
+                'status': 'error',
+                'message': f"Error: {str(e)}",
+                'file_type': 'unknown'
+            }
         
         
-    def get_files_by_folder_key(self,bucket_name,folder_key):
+    def get_files_by_folder_key(self, bucket_name, folder_key):
         """
         This function get the files and folders directly inside the specified folder_key
         @param bucket_name: str
@@ -78,9 +186,7 @@ class AWSFileService:
             
             files = response.get('Contents', [])
             
-           
             for obj in files:
-               
                 key = obj['Key']
                 
                 print(key)
@@ -93,13 +199,23 @@ class AWSFileService:
                 if re.search(r'/.', remaining_path):
                     continue
                 
-                if not key.endswith('/'):
+                if not key.endswith('/'):                    
                     if not key.endswith('.pdf'):
                         continue
                 
                 if remaining_path not in seen_items:
                     seen_items.add(remaining_path)
-                    filtered_items.append(obj)
+                    
+                    obj_with_type = obj.copy()
+                    if key.endswith('.pdf'):
+                        obj_with_type['file_type'] = 'binary_encrypted_as_pdf'
+                        obj_with_type['display_extension'] = '.pdf'
+                        obj_with_type['actual_type'] = '.bin'
+                        obj_with_type['encrypted'] = True
+                    else:
+                        obj_with_type['file_type'] = 'folder'
+                    
+                    filtered_items.append(obj_with_type)
             
             serializer = ResponseFileSerializer(filtered_items, many=True)
             
@@ -116,7 +232,7 @@ class AWSFileService:
         @param new_file_key: str
         """
         try:
-            response = self.s3_client.copy_object(Bucket=bucket_name, CopySource=f'{bucket_name}/{file_key}', Key=new_file_key)
+            response = self.s3_client.copy_object(Bucket=bucket_name, CopySource=f'{bucket_name}/{file_key}', Key=new_file_key+'.pdf')
             
             if response['ResponseMetadata']['HTTPStatusCode'] == 200:
                 self.s3_client.delete_object(Bucket=bucket_name, Key=file_key)
@@ -151,7 +267,22 @@ class AWSFileService:
                 Bucket=f"{bucket_name}-security-project"  
             )
             
-            serializer = ResponseFileSerializer(response['Contents'], many=True)
+            files_with_metadata = []
+            for obj in response.get('Contents', []):
+                if obj['Key'].endswith('.pdf'):
+                    obj_with_metadata = obj.copy()
+                    obj_with_metadata['file_type'] = 'binary_encrypted_as_pdf'
+                    obj_with_metadata['display_extension'] = '.pdf'
+                    obj_with_metadata['actual_type'] = '.bin'
+                    obj_with_metadata['encrypted'] = True
+                    files_with_metadata.append(obj_with_metadata)
+                elif obj['Key'].endswith('/'):
+                    # Incluir carpetas
+                    obj_with_metadata = obj.copy()
+                    obj_with_metadata['file_type'] = 'folder'
+                    files_with_metadata.append(obj_with_metadata)
+            
+            serializer = ResponseFileSerializer(files_with_metadata, many=True)
             
             return serializer.data
         except Exception as e:
@@ -211,32 +342,25 @@ class AWSFileService:
                 raise Exception(f"No se encontraron objetos bajo {folder_key}")
 
             for obj in all_objects:
-                if obj['Key'].endswith('/'):
-                    continue  
-
                 old_key = obj['Key']
                 new_key = old_key.replace(folder_key, new_folder_key, 1)
 
+                copy_source = {'Bucket': bucket_name, 'Key': old_key}
                 self.s3_client.copy_object(
+                    CopySource=copy_source,
                     Bucket=bucket_name,
-                    CopySource={'Bucket': bucket_name, 'Key': old_key},
                     Key=new_key
                 )
 
             for obj in all_objects:
-                if obj['Key'].endswith('/'):
-                    continue
                 self.s3_client.delete_object(Bucket=bucket_name, Key=obj['Key'])
-                                
-            self.s3_client.put_object(Bucket=bucket_name, Key=f"{new_folder_key}")
 
-            self.s3_client.delete_object(Bucket=bucket_name, Key=folder_key)
-
-            return True
-
+            return {
+                "status": "success",
+                "message": f"Carpeta renombrada de '{folder_key}' a '{new_folder_key}' exitosamente."
+            }
         except Exception as e:
-            raise Exception(f"Error al renombrar la carpeta: {str(e)}")
-
+            raise Exception(f"Error: {str(e)}")
         
         
     def delete_folder(self,bucket_name,folder_key):
@@ -246,11 +370,12 @@ class AWSFileService:
         @param folder_key: str
         """
         try:
-            paginator = self.s3_client.get_paginator('list_objects_v2')
-            response = paginator.paginate(Bucket=bucket_name, Prefix=folder_key)
-            for page in response:
-                for obj in page.get('Contents', []):
+            response = self.s3_client.list_objects(Bucket=bucket_name, Prefix=folder_key)
+            
+            if 'Contents' in response:
+                for obj in response['Contents']:
                     self.s3_client.delete_object(Bucket=bucket_name, Key=obj['Key'])
-            return True
+            
+            return response
         except Exception as e:
             raise Exception(f"Error: {str(e)}")
