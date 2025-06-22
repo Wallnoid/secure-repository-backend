@@ -1,13 +1,17 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from aws_files_api.serializers import CreateFolderSerializer, DeleteFileSerializer, DownloadFileSerializer, FolderGetSerializer, GetFilesByFolderSerializer, UpdateFileSerializer, UploadFileSerializer, UpdateFolderNameSerializer, DeleteFolderSerializer
-from aws_files_api.services import AWSFileService
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-from shared_files.services import SharedFileService
 from django.http import HttpResponse
 
+from aws_files_api.serializers import UploadFileSerializer, UpdateFileSerializer, DeleteFileSerializer, DownloadFileSerializer, GetFilesByFolderSerializer, ResponseFileSerializer
+from shared_files.serializers import SharedFileSerializer, DeleteSharedFileSerializer, GetSharedFilesSerializer
+from aws_files_api.serializers import CreateBucketSerializer, CreateFolderSerializer, UpdateFolderNameSerializer, DeleteFolderSerializer
+from aws_files_api.services import AWSFileService
+from shared_files.services import SharedFileService
+
+# Servicios
 file_service = AWSFileService()
 shared_file_service = SharedFileService()
 
@@ -53,12 +57,32 @@ class FilesView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            response = file_service.upload_file(f"{request.user.username}-security-project",file_name,file)
+            # Solo acepta archivos .bin y aplica cifrado automático
+            result = file_service.upload_file(
+                bucket_name=f"{request.user.username}-security-project",
+                file_name=file_name,
+                data=file
+            )
             
-            return Response({
-                "message": "File uploaded successfully",
-               
-            }, status=status.HTTP_201_CREATED)
+            if result['status'] == 'error':
+                return Response({
+                    "error": result['message']
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Respuesta adaptada según el tipo de archivo
+            response_data = {
+                "message": result['message'],
+                "file_type": result['file_type']
+            }
+            
+            if result['file_type'] == 'binary_encrypted_as_pdf':
+                response_data.update({
+                    "original_size": result.get('original_size'),
+                    "encrypted_size": result.get('encrypted_size'),
+                    "encryption_algorithm": result.get('encryption_algorithm')
+                })
+            
+            return Response(response_data, status=status.HTTP_201_CREATED)
             
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -114,14 +138,42 @@ class DownloadFile(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            file_content = file_service.get_file(f"{request.user.username}-security-project", file_key)
+            result = file_service.get_file(
+                bucket_name=f"{request.user.username}-security-project", 
+                file_name=file_key
+            )
+            
+            if result['status'] == 'error':
+                return Response({
+                    "error": result['message']
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            file_content = result['file_content']
             file_name = file_key.split('/')[-1]
+            
+            if result['file_type'] == 'binary_decrypted_from_pdf':
+                content_type = 'application/octet-stream'
+                # Archivo .bin descifrado exitosamente, mantener nombre .pdf para frontend
+            elif result['file_type'] == 'binary_encrypted_as_pdf':
+                content_type = 'application/octet-stream'
+                # Archivo .bin no pudo ser descifrado, mantener como binario
+            else:
+                content_type = 'application/octet-stream'
             
             response = HttpResponse(
                 file_content,
-                content_type='application/pdf'
+                content_type=content_type
             )
             response['Content-Disposition'] = f'attachment; filename="{file_name}"'
+            
+            # Agregar headers informativos para archivos .bin cifrados
+            if result['file_type'] in ['binary_decrypted_from_pdf', 'binary_encrypted_as_pdf']:
+                response['X-File-Type'] = result['file_type']
+                if result.get('decryption_algorithm'):
+                    response['X-Decryption-Algorithm'] = result['decryption_algorithm']
+                if result.get('message'):
+                    response['X-Processing-Message'] = result['message']
+            
             return response
             
         except Exception as e:
