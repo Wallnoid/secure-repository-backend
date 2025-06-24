@@ -121,7 +121,7 @@ class DownloadFileSerializer(serializers.Serializer):
     file_key = serializers.CharField(
         default='',
             help_text='Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed',
-        validators=[RegexValidator(r'^[a-zA-Z0-9\s_\-/]+$', 'Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed')]
+        validators=[RegexValidator(r'^[a-zA-Z0-9\s_\-/]+\.pdf$', 'Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed')]
     )
 
 
