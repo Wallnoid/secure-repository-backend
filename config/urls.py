@@ -58,6 +58,8 @@ urlpatterns = [
         # Servicios de cifrado/descifrado local
         path('encryption/', include(encryption_urls)),
         path('decryption/', include(decryption_urls)),
+        # Usuarios Cognito
+        path('list-all-users/', include('list_all_users.urls')),
         ])),
 ]
 
