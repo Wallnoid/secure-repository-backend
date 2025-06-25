@@ -153,10 +153,14 @@ class DownloadFile(APIView):
             
             if result['file_type'] == 'binary_decrypted_from_pdf':
                 content_type = 'application/octet-stream'
-                # Archivo .bin descifrado exitosamente, mantener nombre .pdf para frontend
+                # Cambiar extensión de .pdf a .bin para descarga
+                if file_name.endswith('.pdf'):
+                    file_name = file_name.replace('.pdf', '.bin')
             elif result['file_type'] == 'binary_encrypted_as_pdf':
                 content_type = 'application/octet-stream'
-                # Archivo .bin no pudo ser descifrado, mantener como binario
+                # Cambiar extensión de .pdf a .bin para descarga
+                if file_name.endswith('.pdf'):
+                    file_name = file_name.replace('.pdf', '.bin')
             else:
                 content_type = 'application/octet-stream'
             
