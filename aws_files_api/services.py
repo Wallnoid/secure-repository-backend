@@ -48,6 +48,12 @@ class AWSFileService:
         @return: dict with upload result
         """
         try:
+            
+            response = self.s3_client.list_objects_v2(Bucket=bucket_name, Prefix=file_name)
+            if 'Contents' in response and any(obj['Key'] == file_name+'.pdf' for obj in response['Contents']):
+                print(f"File '{file_name}' already exists ")
+                raise Exception(f"File '{file_name}' already exists ")
+                
             # Obtener el nombre real del archivo desde el objeto data
             actual_file_name = getattr(data, 'name', file_name) if hasattr(data, 'name') else file_name
             
@@ -72,7 +78,7 @@ class AWSFileService:
                     
                     return {
                         'status': 'success',
-                        'message': 'Archivo .bin cifrado y guardado como .pdf en S3 exitosamente',
+                        'message': 'file .bin uploaded and encrypted successfully',
                         'file_type': 'binary_encrypted_as_pdf',
                         'original_size': original_size,
                         'encrypted_size': encrypted_size,
@@ -86,14 +92,14 @@ class AWSFileService:
                 except Exception as encrypt_error:
                     return {
                         'status': 'error',
-                        'message': f"Error al cifrar archivo .bin en memoria: {str(encrypt_error)}",
+                        'message': f"Error during encryption: {str(encrypt_error)}",
                         'file_type': 'binary_encrypted'
                     }
             else:
                 # Solo se aceptan archivos .bin
                 return {
                     'status': 'error',
-                    'message': 'Solo se aceptan archivos .bin para carga',
+                    'message': 'Only .bin files are allowed for upload',
                     'file_type': 'unsupported'
                 }
                 
@@ -147,7 +153,7 @@ class AWSFileService:
                         'status': 'warning',
                         'file_content': file_content,
                         'file_type': 'binary_encrypted_as_pdf',
-                        'message': f"No se pudo descifrar automáticamente: {str(decrypt_error)}",
+                        'message': f"Error during decryption: {str(decrypt_error)}",
                         'display_extension': '.pdf',
                         'actual_type': '.bin'
                     }
@@ -177,6 +183,13 @@ class AWSFileService:
         @return: list of files and folders in the first level only
         """
         try:
+            
+            response = self.s3_client.list_objects_v2(Bucket=bucket_name, Prefix=folder_key)
+            if 'Contents' in response and any(obj['Key'] == folder_key+"/" for obj in response['Contents']):
+                print(f"Folder '{folder_key}' already exists ")
+                raise Exception(f"Folder '{folder_key}' already exists ")
+                
+            
             response = self.s3_client.list_objects(Bucket=bucket_name, Prefix=folder_key)
             
             prefix_length = len(folder_key)
@@ -232,6 +245,20 @@ class AWSFileService:
         @param new_file_key: str
         """
         try:
+            
+            # Validar si el archivo ya existe
+            response = self.s3_client.list_objects(Bucket=bucket_name, Prefix=new_file_key)
+            if 'Contents' in response and any(obj['Key'] == new_file_key+'.pdf' for obj in response['Contents']):
+                print(f"File '{new_file_key}.pdf' already exists in bucket ")
+                raise Exception(f"File '{new_file_key}.pdf' already exists in bucket ")
+            
+            # Validar si el archivo original existe
+            response = self.s3_client.list_objects(Bucket=bucket_name, Prefix=file_key)
+            if 'Contents' not in response or not any(obj['Key'] == file_key for obj in response['Contents']):
+                print(f"File '{file_key}' does not exist in bucket ")
+                raise Exception(f"File '{file_key}' does not exist in bucket ")
+            
+            
             response = self.s3_client.copy_object(Bucket=bucket_name, CopySource=f'{bucket_name}/{file_key}', Key=new_file_key+'.pdf')
             
             if response['ResponseMetadata']['HTTPStatusCode'] == 200:
@@ -250,6 +277,13 @@ class AWSFileService:
         @param file_key: str
         """
         try:
+            
+            # Validar si el archivo existe
+            response = self.s3_client.list_objects(Bucket=bucket_name, Prefix=file_key)
+            if 'Contents' not in response or not any(obj['Key'] == file_key for obj in response['Contents']):
+                print(f"File '{file_key}' does not exist in bucket ")
+                raise Exception(f"File '{file_key}' does not exist in bucket ")
+                                                     
             return self.s3_client.delete_object(Bucket=bucket_name, Key=file_key)
         except Exception as e:
             raise Exception(f"Error: {str(e)}")
@@ -300,6 +334,17 @@ class AWSFileService:
         @return: dict
         """
         try:
+            
+            # VALIDATE IF FOLDER KEY NON EXIST ON BUCKET
+            response = self.s3_client.list_objects(Bucket=bucket_name, Prefix=folder_key)
+            
+            if 'Contents' in response and any(obj['Key'] == folder_key+'/' for obj in response['Contents']):
+                print(f"Folder '{folder_key}' already exists in bucket ")
+                raise Exception(f"Folder '{folder_key}' already exists in bucket ")
+            
+            
+            
+            print(response) 
            
             return self.s3_client.put_object(Bucket=bucket_name, Key=f'{folder_key}/')
         except Exception as e:
@@ -332,6 +377,20 @@ class AWSFileService:
         @param new_folder_key: str
         """
         try:
+            
+            # Validar si la carpeta ya existe
+            response = self.s3_client.list_objects(Bucket=bucket_name, Prefix=new_folder_key)
+            if 'Contents' in response and any(obj['Key'] == new_folder_key for obj in response['Contents']):
+                print(f"Folder '{new_folder_key}' already exists in bucket ")
+                raise Exception(f"Folder '{new_folder_key}' already exists in bucket ")
+            
+            # Validar si la carpeta original existe
+            response = self.s3_client.list_objects(Bucket=bucket_name, Prefix=folder_key)
+            if 'Contents' not in response or not any(obj['Key'] == folder_key for obj in response['Contents']):
+                print(f"Folder '{folder_key}' does not exist in bucket ")
+                raise Exception(f"Folder '{folder_key}' does not exist in bucket ")
+            
+            
             paginator = self.s3_client.get_paginator('list_objects_v2')
             all_objects = []
 
@@ -370,6 +429,16 @@ class AWSFileService:
         @param folder_key: str
         """
         try:
+            
+            # Validar si la carpeta existe
+            validate_response = self.s3_client.list_objects(Bucket=bucket_name, Prefix=folder_key)
+            if 'Contents' not in validate_response or not any(obj['Key'] == folder_key for obj in validate_response['Contents']):
+                print(f"Folder '{folder_key}' does not exist in bucket ")
+                raise Exception(f"Folder '{folder_key}' does not exist in bucket ")
+            
+            
+            
+            
             response = self.s3_client.list_objects(Bucket=bucket_name, Prefix=folder_key)
             
             if 'Contents' in response:
