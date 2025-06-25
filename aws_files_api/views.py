@@ -116,7 +116,7 @@ class FilesView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         try:
             response = file_service.delete_file(f"{request.user.username}-security-project",file_key)
-            shared_file_service.delete(file_key)
+            shared_file_service.delete_by_file_key(file_key)
             
             return Response({
                 "message": "File deleted successfully",

@@ -1,6 +1,7 @@
 # GUARDAR, EDITAR, REMOVER Y RECUPERAR DE LA BD
 
 from shared_files.models import SharedFile
+from django.db.models import Func, F, Value
 
 
 class SharedFileService:
@@ -18,30 +19,36 @@ class SharedFileService:
         
        
         if '/' in file_key:
-            file_name = file_key.split('/')[-1]
-            return self.model.objects.filter(file_key=file_key).update(file_key=new_file_key, file_name=file_name)
+            file_name = new_file_key.split('/')[-1]
+            return self.model.objects.filter(file_key=file_key).update(file_key=new_file_key + '.pdf', file_name=file_name+ '.pdf')
         else:
-            return self.model.objects.filter(file_key=file_key).update(file_key=new_file_key)
+            return self.model.objects.filter(file_key=file_key).update(file_key=new_file_key + ".pdf", file_name=new_file_key + ".pdf")
     
     def update_folder_key(self, folder_key, new_folder_key):
-        files = self.model.objects.filter(file_key__contains=folder_key)
         
-        for file in files:
-            if folder_key in file.file_key:
-                new_file_key = file.file_key.replace(folder_key, new_folder_key)
-                self.model.objects.filter(id=file.id).update(file_key=new_file_key)
+        updated_count = self.model.objects.filter(file_key__contains=folder_key).update(
+        file_key=Func(
+            F('file_key'),
+            Value(folder_key),
+            Value(new_folder_key),
+            function='REPLACE'
+            )
+        )
         
-        return self.model.objects.filter(folder_key=folder_key).update(folder_key=new_folder_key)
+        return updated_count
+        
 
-
-    def delete(self, file_key):
+    def delete(self, id):
+        return self.model.objects.filter(id=id).delete()
+    
+    def delete_by_file_key(self, file_key):
         return self.model.objects.filter(file_key=file_key).delete()
+        
     
     def delete_folder(self, folder_key):
         files_with_folder = self.model.objects.filter(file_key__contains=folder_key)
-        files_with_folder.delete()
         
-        return self.model.objects.filter(folder_key=folder_key).delete()
+        return files_with_folder.delete() 
 
 
     def get_by_shared_with_user_id(self, shared_with_user_id ):
