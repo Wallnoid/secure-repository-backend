@@ -23,6 +23,7 @@ from aws_files_api.urls import urlFolderpatterns as aws_urls_folders
 from shared_files.urls import urlpatterns as shared_files_urls
 from files_encryption.urls import urlpatterns as encryption_urls
 from files_decryption.urls import urlpatterns as decryption_urls
+from audit.urls import urlpatterns as audit_urls
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
@@ -58,6 +59,10 @@ urlpatterns = [
         # Servicios de cifrado/descifrado local
         path('encryption/', include(encryption_urls)),
         path('decryption/', include(decryption_urls)),
+        
+        # Auditoría de archivos
+        path('audit/', include(audit_urls)),
+        
         # Usuarios Cognito
         path('list-all-users/', include('list_all_users.urls')),
         ])),
