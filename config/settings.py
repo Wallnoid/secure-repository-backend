@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     'drf_yasg',
     'shared_files',
     'corsheaders',
+    'audit',
 ]
 
 MIDDLEWARE = [
