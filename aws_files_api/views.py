@@ -138,10 +138,18 @@ class DownloadFile(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            result = file_service.get_file(
-                bucket_name=f"{request.user.username}-security-project", 
-                file_name=file_key
-            )
+            
+            if serializer.validated_data.get('owner_user_id'):
+                print(f"Downloading file from bucket: {serializer.validated_data['owner_user_id']}-security-project its shared")
+                result = file_service.get_file(bucket_name=f"{serializer.validated_data['owner_user_id']}-security-project", 
+                                              file_name=file_key)
+            else:
+                # Si no se proporciona owner_user_id, se asume que es el bucket del usuario actual
+                print(f"Downloading file from bucket: {request.user.username}-security-project its the owner")
+                result = file_service.get_file(
+                    bucket_name=f"{request.user.username}-security-project", 
+                    file_name=file_key
+                )
             
             if result['status'] == 'error':
                 return Response({
