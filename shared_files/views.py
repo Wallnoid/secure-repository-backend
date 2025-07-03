@@ -42,7 +42,29 @@ class SharedFileView(APIView):
             
             if serializer.is_valid():
                 
+                user_to_share = []
+                skipped_users = []
+                
                 for user in serializer.validated_data["shared_with_users"]:
+                    
+                    if shared_file_service.is_the_same_shared_file(
+                        serializer.validated_data["file_key"],
+                        username,
+                        user["id"]
+                    ):
+                        skipped_users.append(user["email"])
+                    else:
+                        user_to_share.append(user)
+                        
+                
+                if not user_to_share:
+                    return Response({"message": "No new users to share with. Skipped users: " + ", ".join(skipped_users)}, status=status.HTTP_400_BAD_REQUEST)
+                
+                
+                    
+                for user in user_to_share:
+                    
+
                     shared_file_service.save({
                         "owner_user_id": username,
                         "owner_user_email": request.user.email,
@@ -53,8 +75,9 @@ class SharedFileView(APIView):
                         "shared_with_user_email": user["email"],
                         "shared_with_user_id": user["id"]
                 })
-                    
-                return Response({"message": "Shared file created successfully"}, status=status.HTTP_201_CREATED)
+                return Response({"message": "Shared file created successfully",
+                                 "shared_with_users": user_to_share,
+                                 "skipped_users": skipped_users}, status=status.HTTP_201_CREATED)
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
            

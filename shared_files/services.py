@@ -48,7 +48,11 @@ class SharedFileService:
     def delete_folder(self, folder_key):
         files_with_folder = self.model.objects.filter(file_key__contains=folder_key)
         
-        return files_with_folder.delete() 
+        return files_with_folder.delete()
+    
+    
+    def is_the_same_shared_file(self, file_key, owner_user_id, shared_with_user_id):
+        return self.model.objects.filter(file_key=file_key, owner_user_id=owner_user_id, shared_with_user_id=shared_with_user_id).exists() 
 
 
     def get_by_shared_with_user_id(self, shared_with_user_id ):
