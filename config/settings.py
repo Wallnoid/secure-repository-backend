@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'shared_files',
     'corsheaders',
     'audit',
+    'totp_auth',
 ]
 
 MIDDLEWARE = [

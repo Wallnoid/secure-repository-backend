@@ -38,3 +38,4 @@ sqlparse==0.5.3
 tzdata==2025.1
 uritemplate==4.1.1
 urllib3==2.3.0
+pyotp
