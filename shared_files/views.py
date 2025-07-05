@@ -1,7 +1,6 @@
-
-
 from shared_files.serializers import DeleteSharedFileSerializer, GetSharedFilesByFileKeySerializer, GetSharedFilesSerializer, SharedFileSerializer
 from shared_files.services import SharedFileService
+from audit.services import LogService
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
@@ -74,7 +73,24 @@ class SharedFileView(APIView):
                         "file_size": serializer.validated_data["file_size"],
                         "shared_with_user_email": user["email"],
                         "shared_with_user_id": user["id"]
-                })
+                    })
+                    
+                    LogService.log_file_action(
+                        user_id=username,
+                        user_email=getattr(request.user, 'email', ''),
+                        action='SHARE',
+                        file_key=serializer.validated_data["file_key"],
+                        file_name=serializer.validated_data["file_name"],
+                        bucket_name=f"{username}-security-project",
+                        request=request,
+                        file_size=serializer.validated_data["file_size"],
+                        owner_user_id=username,
+                        owner_user_email=getattr(request.user, 'email', ''),
+                        shared_with_user_id=user["id"],
+                        shared_with_user_email=user["email"],
+                        success=True
+                    )
+                    
                 return Response({"message": "Shared file created successfully",
                                  "shared_with_users": user_to_share,
                                  "skipped_users": skipped_users}, status=status.HTTP_201_CREATED)
@@ -82,6 +98,22 @@ class SharedFileView(APIView):
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
            
         except Exception as e:
+            if 'serializer' in locals() and serializer.is_valid():
+                for user in serializer.validated_data.get("shared_with_users", []):
+                    LogService.log_file_action(
+                        user_id=username,
+                        user_email=getattr(request.user, 'email', ''),
+                        action='SHARE',
+                        file_key=serializer.validated_data.get("file_key", ""),
+                        file_name=serializer.validated_data.get("file_name", ""),
+                        bucket_name=f"{username}-security-project",
+                        request=request,
+                        shared_with_user_id=user.get("id", ""),
+                        shared_with_user_email=user.get("email", ""),
+                        success=False,
+                        error_message=str(e)
+                    )
+            
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
         
@@ -95,13 +127,49 @@ class SharedFileView(APIView):
                 return Response({"error": "Token is required"}, status=status.HTTP_400_BAD_REQUEST)
             
             serializer = DeleteSharedFileSerializer(data=request.query_params)
-            if serializer.is_valid():   
-                shared_file_service.delete(serializer.validated_data["id"])
-                return Response({"message": "Shared file deleted successfully"}, status=status.HTTP_200_OK)
+            if serializer.is_valid():
+                shared_file_id = serializer.validated_data["id"]
+                shared_file = shared_file_service.get_by_id(shared_file_id)
+                
+                if shared_file:
+                    shared_file_service.delete(shared_file_id)
+                    
+                    LogService.log_file_action(
+                        user_id=username,
+                        user_email=getattr(request.user, 'email', ''),
+                        action='UNSHARE',
+                        file_key=shared_file.file_key,
+                        file_name=shared_file.file_name,
+                        bucket_name=f"{shared_file.owner_user_id}-security-project",
+                        request=request,
+                        file_size=shared_file.file_size,
+                        owner_user_id=shared_file.owner_user_id,
+                        owner_user_email=shared_file.owner_user_email,
+                        shared_with_user_id=shared_file.shared_with_user_id,
+                        shared_with_user_email=shared_file.shared_with_user_email,
+                        success=True
+                    )
+                    
+                    return Response({"message": "Shared file deleted successfully"}, status=status.HTTP_200_OK)
+                else:
+                    return Response({"error": "Shared file not found"}, status=status.HTTP_404_NOT_FOUND)
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         except Exception as e:
+            if 'serializer' in locals() and serializer.is_valid():
+                LogService.log_file_action(
+                    user_id=username,
+                    user_email=getattr(request.user, 'email', ''),
+                    action='UNSHARE',
+                    file_key="unknown",
+                    file_name="unknown",
+                    bucket_name=f"{username}-security-project",
+                    request=request,
+                    success=False,
+                    error_message=str(e)
+                )
+            
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)  
         
     
