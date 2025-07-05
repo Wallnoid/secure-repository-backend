@@ -65,6 +65,8 @@ urlpatterns = [
         
         # Usuarios Cognito
         path('list-all-users/', include('list_all_users.urls')),
+        # TOTP
+        path('totp/', include('totp_auth.urls')),
         ])),
 ]
 

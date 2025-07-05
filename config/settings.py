@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'shared_files',
     'corsheaders',
     'audit',
+    'totp_auth',
 ]
 
 MIDDLEWARE = [
@@ -218,3 +219,5 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+AWS_EMAIL_FROM = get_key(BASE_DIR / '.env', 'AWS_EMAIL_FROM')
