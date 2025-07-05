@@ -7,6 +7,10 @@ import pyotp
 from django.conf import settings
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+import qrcode
+import io
+import boto3
+from django.core.files.base import ContentFile
 
 # Create your views here.
 
@@ -96,3 +100,34 @@ class ValidateTOTPView(APIView):
             return Response({'message': 'Código TOTP válido.'})
         else:
             return Response({'error': 'Código TOTP inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+class SendTOTPQRView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Genera el QR de TOTP y lo envía por email usando AWS SES al email del usuario autenticado.",
+        responses={
+            200: openapi.Response(
+                description="QR enviado correctamente",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            ),
+            400: openapi.Response(
+                description="Error en la solicitud",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            ),
+            401: 'No autorizado',
+        },
+        tags=['TOTP']
+    )
+    def post(self, request):
+        return Response({'error': 'Funcionalidad de envío de correo deshabilitada.'}, status=status.HTTP_400_BAD_REQUEST)
