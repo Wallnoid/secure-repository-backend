@@ -54,6 +54,12 @@ class SharedFileService:
     def is_the_same_shared_file(self, file_key, owner_user_id, shared_with_user_id):
         return self.model.objects.filter(file_key=file_key, owner_user_id=owner_user_id, shared_with_user_id=shared_with_user_id).exists() 
 
+    def get_by_id(self, id):
+        
+        try:
+            return self.model.objects.get(id=id)
+        except self.model.DoesNotExist:
+            return None
 
     def get_by_shared_with_user_id(self, shared_with_user_id ):
         return self.model.objects.filter(shared_with_user_id=shared_with_user_id).all()

@@ -10,8 +10,8 @@ from shared_files.serializers import SharedFileSerializer, DeleteSharedFileSeria
 from aws_files_api.serializers import CreateBucketSerializer, CreateFolderSerializer, UpdateFolderNameSerializer, DeleteFolderSerializer
 from aws_files_api.services import AWSFileService
 from shared_files.services import SharedFileService
+from audit.services import LogService
 
-# Servicios
 file_service = AWSFileService()
 shared_file_service = SharedFileService()
 
@@ -56,20 +56,45 @@ class FilesView(APIView):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
+        bucket_name = f"{request.user.username}-security-project"
+        
         try:
-            # Solo acepta archivos .bin y aplica cifrado automático
             result = file_service.upload_file(
-                bucket_name=f"{request.user.username}-security-project",
+                bucket_name=bucket_name,
                 file_name=file_name,
                 data=file
             )
             
             if result['status'] == 'error':
+                LogService.log_file_action(
+                    user_id=request.user.username,
+                    user_email=getattr(request.user, 'email', ''),
+                    action='UPLOAD',
+                    file_key=file_name,
+                    file_name=file_name.split('/')[-1],
+                    bucket_name=bucket_name,
+                    request=request,
+                    file_size=file.size,
+                    success=False,
+                    error_message=result['message']
+                )
+                
                 return Response({
                     "error": result['message']
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Respuesta adaptada según el tipo de archivo
+            LogService.log_file_action(
+                user_id=request.user.username,
+                user_email=getattr(request.user, 'email', ''),
+                action='UPLOAD',
+                file_key=file_name,
+                file_name=file_name.split('/')[-1],
+                bucket_name=bucket_name,
+                request=request,
+                file_size=result.get('original_size', file.size),
+                success=True
+            )
+            
             response_data = {
                 "message": result['message'],
                 "file_type": result['file_type']
@@ -85,6 +110,19 @@ class FilesView(APIView):
             return Response(response_data, status=status.HTTP_201_CREATED)
             
         except Exception as e:
+            LogService.log_file_action(
+                user_id=request.user.username,
+                user_email=getattr(request.user, 'email', ''),
+                action='UPLOAD',
+                file_key=file_name,
+                file_name=file_name.split('/')[-1],
+                bucket_name=bucket_name,
+                request=request,
+                file_size=file.size,
+                success=False,
+                error_message=str(e)
+            )
+            
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
     @swagger_auto_schema(request_body=UpdateFileSerializer)
@@ -96,14 +134,41 @@ class FilesView(APIView):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
+        bucket_name = f"{request.user.username}-security-project"
+        
         try:
-            response = file_service.update_file_name(f"{request.user.username}-security-project",file_key,new_file_key)
+            response = file_service.update_file_name(bucket_name, file_key, new_file_key)
             shared_file_service.update_file_key(file_key, new_file_key)
+            
+            LogService.log_file_action(
+                user_id=request.user.username,
+                user_email=getattr(request.user, 'email', ''),
+                action='UPDATE',
+                file_key=new_file_key,
+                file_name=new_file_key.split('/')[-1],
+                bucket_name=bucket_name,
+                request=request,
+                old_file_name=file_key.split('/')[-1],
+                success=True
+            )
+            
             return Response({
                 "message": "File updated successfully",
                 "response": response
             }, status=status.HTTP_200_OK)
         except Exception as e:
+            LogService.log_file_action(
+                user_id=request.user.username,
+                user_email=getattr(request.user, 'email', ''),
+                action='UPDATE',
+                file_key=file_key,
+                file_name=file_key.split('/')[-1],
+                bucket_name=bucket_name,
+                request=request,
+                success=False,
+                error_message=str(e)
+            )
+            
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
     
@@ -114,15 +179,41 @@ class FilesView(APIView):
             file_key = serializer.validated_data['file_key']
         else:            
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        bucket_name = f"{request.user.username}-security-project"
+        
         try:
-            response = file_service.delete_file(f"{request.user.username}-security-project",file_key)
+            response = file_service.delete_file(bucket_name, file_key)
             shared_file_service.delete_by_file_key(file_key)
+            
+            LogService.log_file_action(
+                user_id=request.user.username,
+                user_email=getattr(request.user, 'email', ''),
+                action='DELETE',
+                file_key=file_key,
+                file_name=file_key.split('/')[-1],
+                bucket_name=bucket_name,
+                request=request,
+                success=True
+            )
             
             return Response({
                 "message": "File deleted successfully",
                 "response": response
             }, status=status.HTTP_200_OK)
         except Exception as e:
+            LogService.log_file_action(
+                user_id=request.user.username,
+                user_email=getattr(request.user, 'email', ''),
+                action='DELETE',
+                file_key=file_key,
+                file_name=file_key.split('/')[-1],
+                bucket_name=bucket_name,
+                request=request,
+                success=False,
+                error_message=str(e)
+            )
+            
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
         
@@ -137,21 +228,37 @@ class DownloadFile(APIView):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
+        owner_user_id = serializer.validated_data.get('owner_user_id')
+        if owner_user_id:
+            bucket_name = f"{owner_user_id}-security-project"
+            is_shared_file = True
+        else:
+            bucket_name = f"{request.user.username}-security-project"
+            is_shared_file = False
+            owner_user_id = request.user.username
+        
         try:
-            
-            if serializer.validated_data.get('owner_user_id'):
-                print(f"Downloading file from bucket: {serializer.validated_data['owner_user_id']}-security-project its shared")
-                result = file_service.get_file(bucket_name=f"{serializer.validated_data['owner_user_id']}-security-project", 
-                                              file_name=file_key)
+            if is_shared_file:
+                print(f"Downloading file from bucket: {bucket_name} its shared")
+                result = file_service.get_file(bucket_name=bucket_name, file_name=file_key)
             else:
-                # Si no se proporciona owner_user_id, se asume que es el bucket del usuario actual
-                print(f"Downloading file from bucket: {request.user.username}-security-project its the owner")
-                result = file_service.get_file(
-                    bucket_name=f"{request.user.username}-security-project", 
-                    file_name=file_key
-                )
+                print(f"Downloading file from bucket: {bucket_name} its the owner")
+                result = file_service.get_file(bucket_name=bucket_name, file_name=file_key)
             
             if result['status'] == 'error':
+                LogService.log_file_action(
+                    user_id=request.user.username,
+                    user_email=getattr(request.user, 'email', ''),
+                    action='DOWNLOAD',
+                    file_key=file_key,
+                    file_name=file_key.split('/')[-1],
+                    bucket_name=bucket_name,
+                    request=request,
+                    owner_user_id=owner_user_id if is_shared_file else None,
+                    success=False,
+                    error_message=result['message']
+                )
+                
                 return Response({
                     "error": result['message']
                 }, status=status.HTTP_400_BAD_REQUEST)
@@ -172,6 +279,19 @@ class DownloadFile(APIView):
             else:
                 content_type = 'application/octet-stream'
             
+            LogService.log_file_action(
+                user_id=request.user.username,
+                user_email=getattr(request.user, 'email', ''),
+                action='DOWNLOAD',
+                file_key=file_key,
+                file_name=file_key.split('/')[-1],
+                bucket_name=bucket_name,
+                request=request,
+                file_size=len(file_content) if file_content else None,
+                owner_user_id=owner_user_id if is_shared_file else None,
+                success=True
+            )
+            
             response = HttpResponse(
                 file_content,
                 content_type=content_type
@@ -189,6 +309,19 @@ class DownloadFile(APIView):
             return response
             
         except Exception as e:
+            LogService.log_file_action(
+                user_id=request.user.username,
+                user_email=getattr(request.user, 'email', ''),
+                action='DOWNLOAD',
+                file_key=file_key,
+                file_name=file_key.split('/')[-1],
+                bucket_name=bucket_name,
+                request=request,
+                owner_user_id=owner_user_id if is_shared_file else None,
+                success=False,
+                error_message=str(e)
+            )
+            
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
         
@@ -213,14 +346,41 @@ class FolderCrud(APIView):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
+        bucket_name = f'{request.user.username}-security-project'
+        
         try:
-            response = file_service.create_folder(f'{request.user.username}-security-project',folder_key)
+            response = file_service.create_folder(bucket_name, folder_key)
+            
+            LogService.log_folder_action(
+                user_id=request.user.username,
+                user_email=getattr(request.user, 'email', ''),
+                action='CREATE',
+                folder_key=f'{folder_key}/',
+                folder_name=folder_key.split('/')[-1] if '/' in folder_key else folder_key,
+                bucket_name=bucket_name,
+                request=request,
+                parent_folder='/'.join(folder_key.split('/')[:-1]) if '/' in folder_key else '',
+                success=True
+            )
+            
             return Response({
                 "message": "Folder created successfully",
                 "folder_key": folder_key,
                 "response": response
             }, status=status.HTTP_201_CREATED)
         except Exception as e:
+            LogService.log_folder_action(
+                user_id=request.user.username,
+                user_email=getattr(request.user, 'email', ''),
+                action='CREATE',
+                folder_key=f'{folder_key}/',
+                folder_name=folder_key.split('/')[-1] if '/' in folder_key else folder_key,
+                bucket_name=bucket_name,
+                request=request,
+                success=False,
+                error_message=str(e)
+            )
+            
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
         
@@ -233,15 +393,42 @@ class FolderCrud(APIView):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
+        bucket_name = f'{request.user.username}-security-project'
+        
         try:
-            response = file_service.update_folder_name(f'{request.user.username}-security-project',f'{folder_key}/',f'{new_folder_key}/')
-            
+            response = file_service.update_folder_name(bucket_name, f'{folder_key}/', f'{new_folder_key}/')
             shared_file_service.update_folder_key(folder_key, new_folder_key)
+            
+            LogService.log_folder_action(
+                user_id=request.user.username,
+                user_email=getattr(request.user, 'email', ''),
+                action='UPDATE',
+                folder_key=f'{new_folder_key}/',
+                folder_name=new_folder_key.split('/')[-1] if '/' in new_folder_key else new_folder_key,
+                bucket_name=bucket_name,
+                request=request,
+                old_folder_name=folder_key.split('/')[-1] if '/' in folder_key else folder_key,
+                parent_folder='/'.join(new_folder_key.split('/')[:-1]) if '/' in new_folder_key else '',
+                success=True
+            )
+            
             return Response({
                 "message": "Folder updated successfully",
                 "response": response
             }, status=status.HTTP_200_OK)
         except Exception as e:
+            LogService.log_folder_action(
+                user_id=request.user.username,
+                user_email=getattr(request.user, 'email', ''),
+                action='UPDATE',
+                folder_key=f'{folder_key}/',
+                folder_name=folder_key.split('/')[-1] if '/' in folder_key else folder_key,
+                bucket_name=bucket_name,
+                request=request,
+                success=False,
+                error_message=str(e)
+            )
+            
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
         
@@ -253,12 +440,39 @@ class FolderCrud(APIView):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
+        bucket_name = f'{request.user.username}-security-project'
+        
         try:
-            response = file_service.delete_folder(f'{request.user.username}-security-project',f'{folder_key}/')
+            response = file_service.delete_folder(bucket_name, f'{folder_key}/')
             shared_file_service.delete_folder(folder_key)
+            
+            LogService.log_folder_action(
+                user_id=request.user.username,
+                user_email=getattr(request.user, 'email', ''),
+                action='DELETE',
+                folder_key=f'{folder_key}/',
+                folder_name=folder_key.split('/')[-1] if '/' in folder_key else folder_key,
+                bucket_name=bucket_name,
+                request=request,
+                parent_folder='/'.join(folder_key.split('/')[:-1]) if '/' in folder_key else '',
+                success=True
+            )
+            
             return Response({
                 "message": "Folder deleted successfully",
                 "response": response
             }, status=status.HTTP_200_OK)
         except Exception as e:
+            LogService.log_folder_action(
+                user_id=request.user.username,
+                user_email=getattr(request.user, 'email', ''),
+                action='DELETE',
+                folder_key=f'{folder_key}/',
+                folder_name=folder_key.split('/')[-1] if '/' in folder_key else folder_key,
+                bucket_name=bucket_name,
+                request=request,
+                success=False,
+                error_message=str(e)
+            )
+            
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
