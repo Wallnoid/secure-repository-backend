@@ -72,9 +72,11 @@ class SharedFileView(APIView):
                         "file_name": serializer.validated_data["file_name"],
                         "file_size": serializer.validated_data["file_size"],
                         "shared_with_user_email": user["email"],
-                        "shared_with_user_id": user["id"]
+                        "shared_with_user_id": user["id"],
+                        "can_view": serializer.validated_data["can_view"],
+                        "can_download": serializer.validated_data["can_download"],
+                        "password": serializer.validated_data["password"],
                     })
-                    
                     LogService.log_file_action(
                         user_id=username,
                         user_email=getattr(request.user, 'email', ''),
