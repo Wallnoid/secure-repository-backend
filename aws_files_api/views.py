@@ -5,7 +5,7 @@ from drf_yasg.utils import swagger_auto_schema
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.http import HttpResponse
 
-from aws_files_api.serializers import UploadFileSerializer, UpdateFileSerializer, DeleteFileSerializer, DownloadFileSerializer, GetFilesByFolderSerializer, ResponseFileSerializer
+from aws_files_api.serializers import UploadFileSerializer, UpdateFileSerializer, DeleteFileSerializer, DownloadFileSerializer, GetFilesByFolderSerializer, ResponseFileSerializer, PasswordProtectPdfSerializer
 from shared_files.serializers import SharedFileSerializer, DeleteSharedFileSerializer, GetSharedFilesSerializer
 from aws_files_api.serializers import CreateBucketSerializer, CreateFolderSerializer, UpdateFolderNameSerializer, DeleteFolderSerializer
 from aws_files_api.services import AWSFileService
@@ -471,6 +471,79 @@ class FolderCrud(APIView):
                 folder_name=folder_key.split('/')[-1] if '/' in folder_key else folder_key,
                 bucket_name=bucket_name,
                 request=request,
+                success=False,
+                error_message=str(e)
+            )
+            
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ProtectPdfWithPassword(APIView):
+    parser_classes = [MultiPartParser, FormParser]
+    
+    @swagger_auto_schema(
+        request_body=PasswordProtectPdfSerializer,
+        consumes=["multipart/form-data"]
+    )
+    def post(self, request):
+        serializer = PasswordProtectPdfSerializer(data=request.data)
+        if serializer.is_valid():
+            pdf_file = serializer.validated_data['pdf_file']
+            password = serializer.validated_data['password']
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # Proteger el PDF con contraseña
+            result = file_service.protect_pdf_with_password(pdf_file, password)
+            
+            if result['status'] == 'error':
+                return Response({
+                    "error": result['message']
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Crear el nombre del archivo protegido
+            original_name = pdf_file.name
+            if original_name.lower().endswith('.pdf'):
+                protected_filename = original_name[:-4] + '_protected.pdf'
+            else:
+                protected_filename = original_name + '_protected.pdf'
+            
+            # Registrar la acción en el log
+            LogService.log_file_action(
+                user_id=request.user.username,
+                user_email=getattr(request.user, 'email', ''),
+                action='PROTECT_PDF',
+                file_key=protected_filename,
+                file_name=protected_filename,
+                bucket_name='local_protection',
+                request=request,
+                file_size=result.get('protected_size'),
+                success=True
+            )
+            
+            # Devolver el PDF protegido como descarga
+            response = HttpResponse(
+                result['protected_pdf_bytes'],
+                content_type='application/pdf'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{protected_filename}"'
+            response['X-Original-Size'] = str(result['original_size'])
+            response['X-Protected-Size'] = str(result['protected_size'])
+            response['X-Protection-Status'] = 'password_protected'
+            
+            return response
+            
+        except Exception as e:
+            LogService.log_file_action(
+                user_id=request.user.username,
+                user_email=getattr(request.user, 'email', ''),
+                action='PROTECT_PDF',
+                file_key=pdf_file.name,
+                file_name=pdf_file.name,
+                bucket_name='local_protection',
+                request=request,
+                file_size=pdf_file.size,
                 success=False,
                 error_message=str(e)
             )

@@ -3,6 +3,7 @@ from django.conf import settings
 import re
 import io
 from datetime import datetime
+from PyPDF2 import PdfReader, PdfWriter
 
 from aws_files_api.serializers import ResponseFileSerializer
 from files_encryption.encryption_service import FileEncryptionService
@@ -448,3 +449,53 @@ class AWSFileService:
             return response
         except Exception as e:
             raise Exception(f"Error: {str(e)}")
+
+
+    def protect_pdf_with_password(self, pdf_file, password):
+        """
+        Protege un archivo PDF con una contraseña
+        @param pdf_file: archivo PDF
+        @param password: contraseña para proteger el PDF
+        @return: bytes del PDF protegido
+        """
+        try:
+            # Leer el contenido del archivo PDF
+            if hasattr(pdf_file, 'read'):
+                pdf_content = pdf_file.read()
+            else:
+                pdf_content = pdf_file
+            
+            # Crear un objeto BytesIO con el contenido del PDF
+            pdf_stream = io.BytesIO(pdf_content)
+            
+            # Leer el PDF
+            reader = PdfReader(pdf_stream)
+            writer = PdfWriter()
+            
+            # Copiar todas las páginas al writer
+            for page in reader.pages:
+                writer.add_page(page)
+            
+            # Proteger con contraseña
+            writer.encrypt(password)
+            
+            # Crear un nuevo stream para el PDF protegido
+            protected_pdf_stream = io.BytesIO()
+            writer.write(protected_pdf_stream)
+            
+            # Obtener los bytes del PDF protegido
+            protected_pdf_bytes = protected_pdf_stream.getvalue()
+            
+            return {
+                'status': 'success',
+                'protected_pdf_bytes': protected_pdf_bytes,
+                'original_size': len(pdf_content),
+                'protected_size': len(protected_pdf_bytes),
+                'message': 'PDF password protected successfully'
+            }
+            
+        except Exception as e:
+            return {
+                'status': 'error',
+                'message': f"Error protecting PDF: {str(e)}"
+            }

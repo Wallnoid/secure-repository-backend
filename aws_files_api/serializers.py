@@ -139,6 +139,32 @@ class CreateBucketSerializer(serializers.Serializer):
     )
 
 
+class PasswordProtectPdfSerializer(serializers.Serializer):
+    pdf_file = serializers.FileField(
+        required=True,
+        help_text='PDF file to be password protected'
+    )
+    password = serializers.CharField(
+        required=True,
+        min_length=4,
+        max_length=50,
+        help_text='Password to protect the PDF (minimum 4 characters, maximum 50)'
+    )
+    
+    def validate_pdf_file(self, value):
+        """Validar que el archivo sea PDF"""
+        if not value.name.lower().endswith('.pdf'):
+            raise serializers.ValidationError("El archivo debe ser un PDF (.pdf)")
+        
+        if value.size > 100 * 1024 * 1024:  # 100MB
+            raise serializers.ValidationError("El archivo PDF es demasiado grande (máximo 100MB)")
+        
+        if value.size == 0:
+            raise serializers.ValidationError("El archivo PDF no puede estar vacío")
+        
+        return value
+
+
 class ResponseFileSerializer(serializers.Serializer):
     file_name = serializers.SerializerMethodField()
     file_key = serializers.CharField( source='Key')
