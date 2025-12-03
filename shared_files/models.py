@@ -11,6 +11,9 @@ class SharedFile(models.Model):
     shared_with_user_id = models.CharField(max_length=255)
     shared_with_user_email = models.CharField(max_length=255)
     shared_at = models.DateTimeField(auto_now_add=True)
+    can_view = models.BooleanField(default=True)
+    can_download = models.BooleanField(default=True)
+    password = models.CharField(max_length=255, blank=True, null=True)
 
     def __str__(self):
         return f"{self.owner_user_id} compartió {self.file_key} con {self.shared_with_user_id}"

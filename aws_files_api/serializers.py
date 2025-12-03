@@ -6,32 +6,45 @@ from django.core.validators import RegexValidator
 class UploadFileSerializer(serializers.Serializer):
     file_name = serializers.CharField(
         default='',
-        help_text='Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed. File must end with .pdf',
-        validators=[RegexValidator(r'^[a-zA-Z0-9\s_\-/]+\.pdf$', 'Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed. File must end with .pdf')]
+        help_text='Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed. File must end with .pdf or .bin',
+        validators=[RegexValidator(r'^[a-zA-Z0-9\s_\-/]+$', 'Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed. File must end with .pdf or .bin')]
     )
     file = serializers.FileField(
         required=True,
     )
+    
+    def validate_file(self, value):
+        """Validar archivo según extensión"""
+        if value.name.lower().endswith('.bin'):
+            # Validaciones específicas para archivos .bin
+            if value.size > 50 * 1024 * 1024:  # 50MB
+                raise serializers.ValidationError("El archivo .bin es demasiado grande (máximo 50MB)")
+            if value.size == 0:
+                raise serializers.ValidationError("El archivo .bin no puede estar vacío")
+        else:
+            raise serializers.ValidationError("El archivo debe tener extensión .bin")
+        
+        return value
+
 
 class UpdateFileSerializer(serializers.Serializer):
     file_key = serializers.CharField(
         default='',
-        help_text='Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed. File must end with .pdf',
-        validators=[RegexValidator(r'^[a-zA-Z0-9\s_\-/]+\.pdf$', 'Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed. File must end with .pdf')]
+        help_text='Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed',
+        validators=[RegexValidator(r'^[a-zA-Z0-9\s_\-/]+\.pdf$', 'Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed')]
     )
     
     new_file_key = serializers.CharField(
         default='',
-        help_text='Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed. File must end with .pdf',
-        validators=[RegexValidator(r'^[a-zA-Z0-9\s_\-/]+\.pdf$', 'Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed. File must end with .pdf')]
+        help_text='Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed',
+        validators=[RegexValidator(r'^[a-zA-Z0-9\s_\-/]+$', 'Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed')]
     )
     
 
 class DeleteFileSerializer(serializers.Serializer):
     file_key = serializers.CharField(
         default='',
-        help_text='Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed. File must end with .pdf',
-        validators=[RegexValidator(r'^[a-zA-Z0-9\s_\-/]+\.pdf$', 'Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed. File must end with .pdf')]
+        help_text='Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed',
     )
     
 
@@ -104,11 +117,52 @@ class DeleteFolderSerializer(serializers.Serializer):
 
 
 class DownloadFileSerializer(serializers.Serializer):
+    
     file_key = serializers.CharField(
         default='',
-        help_text='Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed. File must end with .pdf',
-        validators=[RegexValidator(r'^[a-zA-Z0-9\s_\-/]+\.pdf$', 'Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed. File must end with .pdf')]
+            help_text='Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed',
+        validators=[RegexValidator(r'^[a-zA-Z0-9\s_\-/]+\.pdf$', 'Only letters, numbers, spaces, hyphens, underscores and forward slashes are allowed')]
     )
+    
+    owner_user_id = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        help_text='Owner user ID, if not provided, the file will be downloaded from the bucket itself'
+    )
+
+
+class CreateBucketSerializer(serializers.Serializer):
+    bucket_name = serializers.CharField(
+        help_text='Bucket name for S3',
+        validators=[RegexValidator(r'^[a-zA-Z0-9\s_\-]+$', 'Only letters, numbers, spaces, hyphens, and underscores are allowed')]
+    )
+
+
+class PasswordProtectPdfSerializer(serializers.Serializer):
+    pdf_file = serializers.FileField(
+        required=True,
+        help_text='PDF file to be password protected'
+    )
+    password = serializers.CharField(
+        required=True,
+        min_length=4,
+        max_length=50,
+        help_text='Password to protect the PDF (minimum 4 characters, maximum 50)'
+    )
+    
+    def validate_pdf_file(self, value):
+        """Validar que el archivo sea PDF"""
+        if not value.name.lower().endswith('.pdf'):
+            raise serializers.ValidationError("El archivo debe ser un PDF (.pdf)")
+        
+        if value.size > 100 * 1024 * 1024:  # 100MB
+            raise serializers.ValidationError("El archivo PDF es demasiado grande (máximo 100MB)")
+        
+        if value.size == 0:
+            raise serializers.ValidationError("El archivo PDF no puede estar vacío")
+        
+        return value
 
 
 class ResponseFileSerializer(serializers.Serializer):

@@ -10,10 +10,13 @@ class SharedFileSerializer(serializers.ModelSerializer):
     file_name = serializers.CharField()
     file_size = serializers.IntegerField()
     shared_with_users = SharedUserSerializer(many=True)
+    can_view = serializers.BooleanField(default=True)
+    can_download = serializers.BooleanField(default=True)
+    password = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = SharedFile
-        fields = ('file_key', 'file_name', 'file_size', 'shared_with_users')
+        fields = ('file_key', 'file_name', 'file_size', 'shared_with_users', 'can_view', 'can_download', 'password')
 
 
 class DeleteSharedFileSerializer(serializers.ModelSerializer):
